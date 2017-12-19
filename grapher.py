@@ -55,18 +55,20 @@ def setup():
     root.update()
 
 def sensortest():
+    (xval, yval, zval) = sensor.read_magnetometer()
+    sensor.calc_status((xval, yval, zval))
     sensor_status = sensor.get_status()
-    if sensor_status == "INIT FAILED" or sensor_status == "NO DATA":
-        teststat.background("yellow")
-    elif sensor_status == "FAILED":
-        teststat.background("red")
-    else:
-        teststat.backgrounf("green")
+    #if sensor_status == "INIT FAILED" or sensor_status == "NO DATA":
+        #teststat.tag_configure(background="yellow")
+    #if sensor_status == "FAILED":
+     #   teststat.background("red")
+    #else:
+    #    teststat.backgrounf("green")
     teststat.delete("1.0","11.0")
     teststat.insert("1.0", sensor_status)
 
     (xval, yval, zval) = sensor.read_magnetometer()
-    xval_label.config(text="x="+str(xval)[0:SIGFIGS]+" g ")
+    xval_label.config(text="x="+str(xval)[0:SIGFIGS]+" g   ")
     yval_label.config(text="y="+str(yval)[0:SIGFIGS]+" g")
     zval_label.config(text="z="+str(zval)[0:SIGFIGS]+" g")
 
@@ -81,7 +83,7 @@ def update_magnetometer():
     root.update()
 
 calibrate = False
-run_test  = False
+run_test  = True
 
 setup()
 while True:
