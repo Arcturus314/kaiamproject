@@ -2,32 +2,60 @@
 #Dec 16 2017
 #Python driver for the LSM303 Magnetometer on I2C
 
-import random
+
+#The Adafruit LSM303 package must be installed for this script to function. It is available at:
+#   https://github.com/adafruit/Adafruit_Python_LSM303
+
+#Data is returned after offset and scale adjustment, via the formula:
+#   output = raw*scale - offset
+
 import Adafruit_LSM303
 
+#status tracks whether the last tested isolator is in spec
+status = "INIT FAILED"
+
+#x, y, and z offsets- set by the program during calibration
+offsets = [0,0,0]
+
+#x, y, and z scale- these are set by the user
+#these values are currently set to the +/-1.3 Gauss FSD LSB/mgauss setting in the LSM303 datasheet:
+#   http://www.st.com/content/ccc/resource/technical/document/datasheet/56/ec/ac/de/28/21/4d/48/DM00027543.pdf/files/DM00027543.pdf/jcr:content/translations/en.DM00027543.pdf
+#   X/Y: 1100 LSB/Gauss
+#   Z  : 980  LSB/Gauss
+scale   = [0.9091,0.9091,1.0204]
+
+#acceptable magnetic field strength ranges in mgauss- FOR TEMPORARY METRIC
 X_RANGE = [-1000,1000]
 Y_RANGE = [-1000,1000]
 Z_RANGE = [-1000,1000]
 
-#0.75, 1.5, 3.0, 7.5, 15, 30, or 75 Hz
-OUTPUT_RATE = 30
 
-#NORMAL, POS_BIAS, NEG_BIAS
-OUTPUT_CONFIG = "NORMAL"
+def calc_status(mag):
+    '''calculates whether the tested isolator is in spec
+    THIS FUNCTION WILL NEED TO BE MODIFIED'''
 
-#1.3, 1.9, 2.5, 4.0, 4.7, 5.6, 8.1 Gauss
-FSD = 4
+    #as this method modifies status
+    global status
 
-ADDR = (0x3C >> 1)
+    #no assignment is done if there is a sensor failure
+    if status == "INIT FAILED": return
+    mag_x, mag_y, mag_z = mag
 
-status = "INIT FAILED"
+    #THIS WILL NEED TO BE MODIFIED
+    #The current metric tests whether the X, Y, and Z-axis magnetic field strength values are within the bounds of X_RANGE, Y_RANGE, and Z_RANGE.
+    #   These bounds are set at +/- 1 Gauss- this was an arbitrary value, and will need to be adjusted depending on the isolator.
+    if mag_x <= X_RANGE[0] or mag_x >= X_RANGE[1] or mag_y <= Y_RANGE[0] or mag_y >= Y_RANGE[1] or mag_z <= Z_RANGE[0] or mag_z >= Z_RANGE[1]:
+        status = "FAILED"
+    else: status = "PASSED"
 
-#x, y, and z offsets
-offsets = [0,0,0]
+def setup_magnetometer():
+    '''Initializes communication with the magnetometer and sets sensor parameters'''
 
+    #setting global parameters
+    global lsm303
+    global status
 
-def setup_magnetometer(address = (0x3C >> 1)):
-    #Initializes communication with the magnetometer and sets sensor parameters
+    #the Adafruit script will fail in the case of I2C error
     try:
         lsm303=Adafruit_LSM303.LSM303()
         status = "NO DATA"
@@ -36,25 +64,29 @@ def setup_magnetometer(address = (0x3C >> 1)):
     return
 
 def read_magnetometer():
-    #reads the magnetometer, returning a tuple of 
+    '''reads the magnetometer, returning a tuple of x,y, and z values adjusted by scale and offsets'''
+
+    #(0,0,0) is returned if there is a sensor or communication failure
     if status == "INIT FAILED": return (0,0,0)
     accel, mag = lsm303.read()
-    return (mag[0]-offsets[0], mag[1]-offsets[1], mag[2]-offsets[2])
+
+    #calculation of adjusted values
+    return (mag[0]*scale[0]-offsets[0], mag[1]*scale[1]-offsets[1], mag[2]*scale[2]-offsets[2])
 
 def calibrate():
+    '''calibrates the magnetometer to the current set of values by assigning magnetometer values to offsets'''
+
+    #declared as global as offsets are modified
+    global offsets
+
+    #no calibration is done if there is a sensor failure
     if status == "INIT FAILED": return
     accel, mag = lsm303.read()
+
+    #assigning offsets to be read magnetometer values
     offsets = mag
 
-def calc_status(mag):
-    #calculates whether the tested magnet is in range
-    if status == "INIT FAILED": return
-    mag_x, mag_y, mag_z = mag
-    if mag_x <= X_RANGE[0] or mag_x >= X_RANGE[1] or mag_y <= Y_RANGE[0] or mag_y >= Y_RANGE[1] or mag_z <= Z_RANGE[0] or mag_z >= Z_RANGE[1]:
-        status = "PASSED"
-    status = "FAILED"
-
 def get_status():
-    #returns the status of the magnetometer testing
+    '''returns the result of the most recent magnetometer test'''
     return status
 
